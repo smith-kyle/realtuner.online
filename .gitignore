@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# tuner data
+tuner-data.json
+
 # next.js
 /.next/
 /out/

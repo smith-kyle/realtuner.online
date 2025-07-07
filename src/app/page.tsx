@@ -1,103 +1,193 @@
-import Image from "next/image";
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useSocket } from './hooks/useSocket'
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const { gameState, requestMicrophonePermission, joinQueue, error } = useSocket()
+  const [name, setName] = useState('')
+  const [micDenied, setMicDenied] = useState(false)
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1200,
+  )
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Get user ID from localStorage to check if they're in queue
+  const userId = typeof window !== 'undefined' ? localStorage.getItem('realtuner-user-id') : null
+
+  // Check if current user is in queue or currently playing
+  const isInQueue = userId && gameState.queue.some((p) => p.id === userId)
+  const isCurrentPlayer = userId && gameState.currentPlayer && gameState.currentPlayer.id === userId
+
+  // Track window width for responsive layout
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const handleJoinQueue = async () => {
+    if (!name.trim()) return
+
+    const hasPermission = await requestMicrophonePermission()
+    if (hasPermission) {
+      joinQueue(name)
+      setName('')
+    } else {
+      setMicDenied(true)
+    }
+  }
+
+  // Determine if we should stack vertically
+  const isNarrow = windowWidth < 1000
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', padding: '20px' }}>
+      {/* Current player info above video */}
+      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        {gameState.currentPlayer ? (
+          <>
+            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+              {gameState.currentPlayer.name}'s turn to tune
+            </div>
+            <div style={{ fontSize: '16px', color: '#666' }}>{gameState.timeLeft}s left</div>
+          </>
+        ) : (
+          <div style={{ fontSize: '16px', color: '#666' }}>Join the queue to start tuning</div>
+        )}
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: isNarrow ? 'column' : 'row',
+          gap: '20px',
+          flex: 1,
+        }}
+      >
+        {/* Video section */}
+        <div
+          style={{
+            width: isNarrow ? '100%' : '60%',
+            aspectRatio: '16/9',
+            maxHeight: isNarrow ? '300px' : '500px',
+          }}
+        >
+          <iframe
+            width="100%"
+            height="100%"
+            src="https://www.youtube.com/embed/FrULPuxyhWE"
+            title="YouTube livestream"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            style={{ borderRadius: '8px' }}
+          ></iframe>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+
+        {/* Queue section */}
+        <div
+          style={{
+            width: isNarrow ? '100%' : '40%',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          {/* Combined queue and join form */}
+          <div style={{ border: '1px solid #ccc', borderRadius: '8px', overflow: 'hidden' }}>
+            {/* Join queue form */}
+            <div
+              style={{
+                padding: '15px',
+                backgroundColor: '#f8f9fa',
+                borderBottom: '1px solid #e9ecef',
+              }}
+            >
+              {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
+
+              {isCurrentPlayer ? (
+                <div style={{ fontWeight: 'bold' }}>It's your turn.</div>
+              ) : isInQueue ? (
+                <div style={{ fontWeight: 'bold' }}>
+                  You're in the queue. Position:{' '}
+                  {gameState.queue.findIndex((p) => p.id === userId) + 1}
+                </div>
+              ) : micDenied ? (
+                <button
+                  onClick={() => window.location.reload()}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#f44336',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: '500',
+                  }}
+                >
+                  Refresh to allow microphone
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input
+                    type="text"
+                    placeholder="Your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      borderRadius: '6px',
+                      border: '1px solid #ccc',
+                      fontSize: '14px',
+                    }}
+                  />
+                  <button
+                    onClick={handleJoinQueue}
+                    style={{
+                      padding: '10px 20px',
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: '500',
+                      fontSize: '14px',
+                    }}
+                  >
+                    Join Queue
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Queue list */}
+            <div style={{ padding: '15px' }}>
+              <h3 style={{ margin: '0 0 15px 0', fontSize: '18px', fontWeight: '600' }}>
+                Queue ({gameState.queue.length})
+              </h3>
+              {gameState.queue.length === 0 ? (
+                <p style={{ color: '#666', margin: 0 }}>No one in queue</p>
+              ) : (
+                <ol style={{ margin: 0, paddingLeft: '20px' }}>
+                  {gameState.queue.map((player, index) => (
+                    <li key={player.id} style={{ marginBottom: '8px', fontSize: '14px' }}>
+                      {player.name}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Total tunes counter at bottom */}
+      <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '14px', color: '#666' }}>
+        Total tunes: {gameState.totalTunes}
+      </div>
     </div>
-  );
+  )
 }
