@@ -73,17 +73,21 @@ export default function Home() {
             width: isNarrow ? '100%' : '60%',
             aspectRatio: '16/9',
             maxHeight: isNarrow ? '300px' : '500px',
+            position: 'relative',
           }}
         >
           <iframe
-            width="100%"
-            height="100%"
-            src="https://www.youtube.com/embed/FrULPuxyhWE"
-            title="YouTube livestream"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            style={{ borderRadius: '8px' }}
+            src="https://customer-45m451mk4pl7803c.cloudflarestream.com/887f8fa55974c95626b02dc4f92d9f26/iframe?muted=true&amp;autoplay=true"
+            style={{
+              border: 'none',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              height: '100%',
+              width: '100%',
+            }}
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+            allowFullScreen={true}
           ></iframe>
         </div>
 
