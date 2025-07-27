@@ -4,6 +4,8 @@ const { Server } = require('socket.io')
 const { v4: uuidv4 } = require('uuid')
 const fs = require('fs')
 const path = require('path')
+const Speaker = require('speaker')
+const { Readable } = require('stream')
 
 const app = express()
 const server = http.createServer(app)
@@ -32,6 +34,48 @@ const RECONNECT_GRACE_PERIOD = 30000 // 30 seconds to reconnect
 
 // Track active connections by user ID
 let activeConnections = new Map() // userId -> socketId
+
+// Audio speaker setup
+let speaker = null
+let currentPlayerId = null
+let audioBuffer = Buffer.alloc(0)
+const TARGET_CHUNK_SIZE = 4096 // Larger chunks for smoother playback
+
+function initializeSpeaker(userId) {
+  if (!speaker || currentPlayerId !== userId) {
+    if (speaker) {
+      speaker.end()
+      audioBuffer = Buffer.alloc(0) // Clear buffer on speaker change
+    }
+
+    speaker = new Speaker({
+      channels: 1,
+      bitDepth: 16,
+      sampleRate: 44100,
+      highWaterMark: 1024, // Smaller internal buffer
+    })
+
+    speaker.on('drain', () => {
+      console.log('Speaker drained, ready for more data')
+    })
+
+    currentPlayerId = userId
+  }
+  return speaker
+}
+
+function closeSpeaker() {
+  if (speaker) {
+    try {
+      speaker.end()
+      console.log('Speaker closed for user:', currentPlayerId)
+    } catch (error) {
+      console.error('Error closing speaker:', error)
+    }
+    speaker = null
+    currentPlayerId = null
+  }
+}
 
 // Load existing data
 function loadData() {
@@ -81,6 +125,9 @@ function nextPlayer(completed = false) {
   if (gameState.currentPlayer && completed) {
     gameState.totalTunes++
   }
+
+  // Close speaker when current player's turn ends
+  closeSpeaker()
 
   gameState.currentPlayer = null
   gameState.timeLeft = 0
@@ -212,13 +259,25 @@ io.on('connection', (socket) => {
 
   // Handle audio stream
   socket.on('audio-stream', (audioData) => {
-    if (!userId) return
+    if (!userId || !gameState.currentPlayer || gameState.currentPlayer.id !== userId) return
 
-    // Only allow audio from current player
-    if (gameState.currentPlayer && gameState.currentPlayer.id === userId) {
-      // Broadcast audio to all connected clients (for now)
-      // In production, this would be sent to the server's audio output
+    try {
+      const currentSpeaker = initializeSpeaker(userId)
+      const pcmBuffer = Buffer.from(audioData)
+
+      // Accumulate audio data
+      audioBuffer = Buffer.concat([audioBuffer, pcmBuffer])
+
+      // Only write when we have enough data
+      while (audioBuffer.length >= TARGET_CHUNK_SIZE) {
+        const chunk = audioBuffer.subarray(0, TARGET_CHUNK_SIZE)
+        audioBuffer = audioBuffer.subarray(TARGET_CHUNK_SIZE)
+        currentSpeaker.write(chunk)
+      }
+
       socket.broadcast.emit('audio-output', audioData)
+    } catch (error) {
+      console.error('Error playing audio:', error)
     }
   })
 
@@ -227,7 +286,7 @@ io.on('connection', (socket) => {
     if (!userId) return
 
     if (gameState.currentPlayer && gameState.currentPlayer.id === userId) {
-      nextPlayer(false) // Player skipped, don't count as completed tune
+      nextPlayer(true)
     }
   })
 
@@ -319,6 +378,10 @@ server.listen(PORT, () => {
 process.on('SIGINT', () => {
   console.log('Shutting down gracefully...')
   saveData()
+
+  // Close speaker if it exists
+  closeSpeaker()
+
   server.close(() => {
     console.log('Server closed')
     process.exit(0)

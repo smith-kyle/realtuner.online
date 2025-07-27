@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client'
 import { Player, GameState } from '../types'
 
 export function useSocket() {
-  const [socket, setSocket] = useState<Socket | null>(null)
+  const socketRef = useRef<Socket | null>(null)
   const [gameState, setGameState] = useState<GameState>({
     queue: [],
     currentPlayer: null,
@@ -15,8 +15,11 @@ export function useSocket() {
   const [error, setError] = useState<string | null>(null)
 
   const audioStreamRef = useRef<MediaStream | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const processorRef = useRef<ScriptProcessorNode | null>(null)
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const userIdRef = useRef<string | null>(null)
+  const isStreamingRef = useRef<boolean>(false)
 
   useEffect(() => {
     // Get or generate persistent user ID
@@ -50,6 +53,26 @@ export function useSocket() {
 
     newSocket.on('game-state-update', (state: GameState) => {
       setGameState(state)
+
+      // Check if current user became the active player
+      const isCurrentPlayer = state.currentPlayer && state.currentPlayer.id === userId
+
+      console.log('Game state update:', {
+        userId,
+        currentPlayerId: state.currentPlayer?.id,
+        isCurrentPlayer,
+        isStreaming: isStreamingRef.current,
+      })
+
+      if (isCurrentPlayer && !isStreamingRef.current) {
+        // Start audio streaming when it's our turn
+        console.log("Starting audio stream - it's our turn!")
+        startAudioStream()
+      } else if (!isCurrentPlayer && isStreamingRef.current) {
+        // Stop audio streaming when it's no longer our turn
+        console.log('Stopping audio stream - turn ended')
+        stopAudioStream()
+      }
     })
 
     newSocket.on('timer-update', (timeLeft: number) => {
@@ -70,46 +93,81 @@ export function useSocket() {
       console.log('Received audio data:', audioData)
     })
 
-    setSocket(newSocket)
+    socketRef.current = newSocket
 
     return () => {
+      // Clean up audio stream on component unmount
+      stopAudioStream()
       newSocket.disconnect()
     }
   }, [])
 
   const joinQueue = (playerName: string) => {
-    if (socket && playerName.trim()) {
-      socket.emit('join-queue', playerName.trim())
+    if (socketRef.current && playerName.trim()) {
+      socketRef.current.emit('join-queue', playerName.trim())
     }
   }
 
   const leaveQueue = () => {
-    if (socket) {
-      socket.emit('leave-queue')
+    if (socketRef.current) {
+      socketRef.current.emit('leave-queue')
     }
   }
 
   const skipTurn = () => {
-    if (socket) {
-      socket.emit('skip-turn')
+    if (socketRef.current) {
+      socketRef.current.emit('skip-turn')
     }
   }
 
   const startAudioStream = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      audioStreamRef.current = stream
-
-      const mediaRecorder = new MediaRecorder(stream)
-      mediaRecorderRef.current = mediaRecorder
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0 && socket) {
-          socket.emit('audio-stream', event.data)
-        }
+      if (isStreamingRef.current) {
+        console.log('Audio stream already active')
+        return true
       }
 
-      mediaRecorder.start(100) // Send data every 100ms
+      // Get microphone stream
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 44100,
+          channelCount: 1,
+          echoCancellation: false,
+          autoGainControl: false,
+          noiseSuppression: false,
+        },
+      })
+      audioStreamRef.current = stream
+
+      // Create audio context
+      const audioContext = new AudioContext({ sampleRate: 44100 })
+      audioContextRef.current = audioContext
+
+      await audioContext.audioWorklet.addModule('/audio-processor.js')
+
+      const node = new AudioWorkletNode(audioContext, 'audio-processor')
+
+      // Create source from microphone stream
+      const source = audioContext.createMediaStreamSource(stream)
+      sourceRef.current = source
+
+      node.port.onmessage = (event) => {
+        if (!socketRef.current || !isStreamingRef.current) return
+        const float32 = event.data as Float32Array
+
+        const int16 = new Int16Array(float32.length)
+        for (let i = 0; i < float32.length; i++) {
+          const s = Math.max(-1, Math.min(1, float32[i]))
+          int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff
+        }
+        socketRef.current.emit('audio-stream', int16.buffer)
+      }
+
+      // Connect the audio graph (don't connect to destination to avoid feedback)
+      source.connect(node)
+
+      isStreamingRef.current = true
+      console.log('Web Audio API stream started successfully')
       return true
     } catch (error) {
       console.error('Error accessing microphone:', error)
@@ -119,11 +177,39 @@ export function useSocket() {
   }
 
   const stopAudioStream = () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop()
-    }
-    if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach((track) => track.stop())
+    console.log('stopAudioStream called, isStreaming:', isStreamingRef.current)
+
+    if (isStreamingRef.current) {
+      // Disconnect audio nodes
+      if (processorRef.current) {
+        console.log('Disconnecting processor')
+        processorRef.current.disconnect()
+        processorRef.current = null
+      }
+      if (sourceRef.current) {
+        console.log('Disconnecting source')
+        sourceRef.current.disconnect()
+        sourceRef.current = null
+      }
+
+      // Close audio context
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        console.log('Closing audio context')
+        audioContextRef.current.close()
+        audioContextRef.current = null
+      }
+
+      // Stop microphone stream
+      if (audioStreamRef.current) {
+        console.log('Stopping microphone tracks')
+        audioStreamRef.current.getTracks().forEach((track) => track.stop())
+        audioStreamRef.current = null
+      }
+
+      isStreamingRef.current = false
+      console.log('Web Audio API stream stopped successfully')
+    } else {
+      console.log('Stream was not active, nothing to stop')
     }
   }
 
@@ -139,7 +225,7 @@ export function useSocket() {
   }
 
   return {
-    socket,
+    socket: socketRef.current,
     gameState,
     isConnected,
     error,
