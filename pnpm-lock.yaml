@@ -29,9 +29,6 @@ importers:
       socket.io-client:
         specifier: ^4.7.5
         version: 4.8.1
-      speaker:
-        specifier: ^0.5.5
-        version: 0.5.5
       uuid:
         specifier: ^9.0.1
         version: 9.0.1
@@ -428,21 +425,9 @@ packages:
     resolution: {integrity: sha512-lGe34o6EHj9y3Kts9R4ZYs/Gr+6N7MCaMlIFA3F1R2O5/m7K06AxfSeO5530PEERE6/WyEg3lsuyw4GHlPZHog==}
     engines: {node: ^4.5.0 || >= 5.9}
 
-  bindings@1.5.0:
-    resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
-
   body-parser@1.20.3:
     resolution: {integrity: sha512-7rAxByjUMqQ3/bHJy7D6OGXvx/MMc4IqBn/X0fcM1QUcAItpZrBEYhWGem+tzXH90c+G01ypMcYJBO9Y30203g==}
     engines: {node: '>= 0.8', npm: 1.2.8000 || >= 1.4.16}
-
-  buffer-alloc-unsafe@1.1.0:
-    resolution: {integrity: sha512-TEM2iMIEQdJ2yjPJoSIsldnleVaAk1oW3DBVUykyOLsEsFmEc9kn+SFFPz+gl54KQNxlDnAwCXosOS9Okx2xAg==}
-
-  buffer-alloc@1.2.0:
-    resolution: {integrity: sha512-CFsHQgjtW1UChdXgbyJGtnm+O/uLQeZdtbDo8mfUgYXCHSM1wgrVxXm6bSyrUuErEb+4sYVGCzASBRot7zyrow==}
-
-  buffer-fill@1.0.0:
-    resolution: {integrity: sha512-T7zexNBwiiaCOGDg9xNX9PBmjrubblRkENuptryuI64URkXDFum9il/JGL8Lm8wYfAXpredVXXZz7eMHilimiQ==}
 
   buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
@@ -601,9 +586,6 @@ packages:
   express@4.21.2:
     resolution: {integrity: sha512-28HqgMZAmih1Czt9ny7qr6ek2qddF4FclbMzwhCREB6OFfH+rXAnuNCwo1/wFvrtbgsQDb4kSbX9de9lFbrXnA==}
     engines: {node: '>= 0.10.0'}
-
-  file-uri-to-path@1.0.0:
-    resolution: {integrity: sha512-0Zt+s3L7Vf1biwWZ29aARiVYLx7iMGnEUl9x33fbB/j3jR81u/O2LbqK+Bm1CDSNDKVtJ/YjwY7TUd5SkeLQLw==}
 
   finalhandler@1.3.1:
     resolution: {integrity: sha512-6BN9trH7bp3qvnrRyzsBz+g3lZxTNZTbVO2EV1CS0WIcDbawYVdYvGflME/9QP0h0pYlCDBCTjYa9nZzMDpyxQ==}
@@ -954,10 +936,6 @@ packages:
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
-
-  speaker@0.5.5:
-    resolution: {integrity: sha512-IBeMZUITigYBO139h0+1MAgBHNZF55GFJN4U/Box35Sg49cfqYkbCO92TXoCUy22Ast08zfqKuXLvPxq9CWwLw==}
-    engines: {node: '>=8.6'}
 
   statuses@2.0.1:
     resolution: {integrity: sha512-RwNA9Z/7PrK06rYLIzFMlaF+l73iwpzsqRIFgbMLbTcLD6cOao82TaWefPXQvB2fOC4AjuYSEndS7N/mTCbkdQ==}
@@ -1358,10 +1336,6 @@ snapshots:
 
   base64id@2.0.0: {}
 
-  bindings@1.5.0:
-    dependencies:
-      file-uri-to-path: 1.0.0
-
   body-parser@1.20.3:
     dependencies:
       bytes: 3.1.2
@@ -1378,15 +1352,6 @@ snapshots:
       unpipe: 1.0.0
     transitivePeerDependencies:
       - supports-color
-
-  buffer-alloc-unsafe@1.1.0: {}
-
-  buffer-alloc@1.2.0:
-    dependencies:
-      buffer-alloc-unsafe: 1.1.0
-      buffer-fill: 1.0.0
-
-  buffer-fill@1.0.0: {}
 
   buffer-from@1.1.2: {}
 
@@ -1568,8 +1533,6 @@ snapshots:
       vary: 1.1.2
     transitivePeerDependencies:
       - supports-color
-
-  file-uri-to-path@1.0.0: {}
 
   finalhandler@1.3.1:
     dependencies:
@@ -1970,14 +1933,6 @@ snapshots:
       - utf-8-validate
 
   source-map-js@1.2.1: {}
-
-  speaker@0.5.5:
-    dependencies:
-      bindings: 1.5.0
-      buffer-alloc: 1.2.0
-      debug: 4.3.7
-    transitivePeerDependencies:
-      - supports-color
 
   statuses@2.0.1: {}
 
