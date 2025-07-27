@@ -151,16 +151,34 @@ export function useSocket() {
       const source = audioContext.createMediaStreamSource(stream)
       sourceRef.current = source
 
+      // Buffer for 1 second of audio (44100 samples for 1 channel, 16-bit)
+      const BUFFER_SIZE = 44100
+      let audioBuffer: Int16Array | null = null
+      let bufferOffset = 0
+
       node.port.onmessage = (event) => {
         if (!socketRef.current || !isStreamingRef.current) return
         const float32 = event.data as Float32Array
 
-        const int16 = new Int16Array(float32.length)
-        for (let i = 0; i < float32.length; i++) {
-          const s = Math.max(-1, Math.min(1, float32[i]))
-          int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff
+        // Allocate buffer if not present
+        if (!audioBuffer) {
+          audioBuffer = new Int16Array(BUFFER_SIZE)
+          bufferOffset = 0
         }
-        socketRef.current.emit('audio-stream', int16.buffer)
+
+        // Convert Float32 to Int16 and fill buffer
+        for (let i = 0; i < float32.length; i++) {
+          if (bufferOffset >= BUFFER_SIZE) break // Prevent overflow
+          const s = Math.max(-1, Math.min(1, float32[i]))
+          audioBuffer[bufferOffset++] = s < 0 ? s * 0x8000 : s * 0x7fff
+        }
+
+        // If buffer is full, send it and reset
+        if (bufferOffset >= BUFFER_SIZE) {
+          socketRef.current.emit('audio-stream', audioBuffer.buffer)
+          audioBuffer = null
+          bufferOffset = 0
+        }
       }
 
       // Connect the audio graph (don't connect to destination to avoid feedback)

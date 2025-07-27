@@ -38,30 +38,121 @@ let activeConnections = new Map() // userId -> socketId
 // Audio speaker setup
 let speaker = null
 let currentPlayerId = null
-let audioBuffer = Buffer.alloc(0)
+let audioBuffer = null
 const TARGET_CHUNK_SIZE = 4096 // Larger chunks for smoother playback
 
+function monotone(n) {
+  const sampleSize = this.bitDepth / 8
+  const blockAlign = sampleSize * this.channels
+  const numSamples = (n / blockAlign) | 0
+  const buf = Buffer.alloc(numSamples * blockAlign)
+  const amplitude = 32760 // Max amplitude for 16-bit audio
+  console.log('Generating sine wave', numSamples)
+
+  // the "angle" used in the function, adjusted for the number of
+  // channels and sample rate. This value is like the period of the wave.
+  const t = (Math.PI * 2 * 440) / this.sampleRate
+
+  for (let i = 0; i < numSamples; i++) {
+    // fill with a simple sine wave at max amplitude
+    for (let channel = 0; channel < this.channels; channel++) {
+      const s = this.samplesGenerated + i
+      const val = Math.round(amplitude * Math.sin(t * s)) // sine wave
+      const offset = i * sampleSize * this.channels + channel * sampleSize
+      buf[`writeInt${this.bitDepth}LE`](val, offset)
+    }
+  }
+
+  this.push(buf)
+
+  this.samplesGenerated += numSamples
+}
+
+function addAudioData(buffer) {
+  this.audioBuffer = Buffer.concat([this.audioBuffer, buffer])
+  this.totalQueued += buffer.length
+  console.log(
+    'Added audio buffer:',
+    buffer.length,
+    'bytes, total buffered:',
+    this.audioBuffer.length - this.bufferReadOffset,
+  )
+}
+
+function read(size) {
+  const availableBytes = this.audioBuffer.length - this.bufferReadOffset
+
+  console.log('read', size, 'availableBytes', availableBytes)
+  if (availableBytes === 0) {
+    return this.monotone(size)
+  }
+
+  const sampleSize = this.bitDepth / 8
+  const blockAlign = sampleSize * this.channels
+  const requestedSamples = Math.floor(size / blockAlign)
+  const availableSamples = Math.floor(availableBytes / sampleSize)
+  const samplesToRead = Math.min(requestedSamples, availableSamples)
+
+  const buf = Buffer.alloc(samplesToRead * blockAlign)
+
+  for (let i = 0; i < samplesToRead; i++) {
+    const sourceOffset = this.bufferReadOffset + i * sampleSize
+    const val = this.audioBuffer.readInt16LE(sourceOffset)
+
+    for (let channel = 0; channel < this.channels; channel++) {
+      const targetOffset = i * blockAlign + channel * sampleSize
+      buf.writeInt16LE(val, targetOffset)
+    }
+  }
+
+  this.bufferReadOffset += samplesToRead * sampleSize
+
+  // Clean up consumed data periodically
+  if (this.bufferReadOffset > 8192) {
+    // Arbitrary threshold
+    this.audioBuffer = this.audioBuffer.slice(this.bufferReadOffset)
+    this.bufferReadOffset = 0
+  }
+
+  this.push(buf)
+  this.totalQueued -= buf.length
+  this.samplesGenerated += samplesToRead
+}
+
 function initializeSpeaker(userId) {
-  if (!speaker || currentPlayerId !== userId) {
+  if (!audioBuffer || currentPlayerId !== userId) {
+    // Clean up old speaker
     if (speaker) {
       speaker.end()
-      audioBuffer = Buffer.alloc(0) // Clear buffer on speaker change
     }
 
+    // Create new audio buffer stream
+    audioBuffer = new Readable()
+    audioBuffer.bitDepth = 16
+    audioBuffer.channels = 1
+    audioBuffer.sampleRate = 44100
+    audioBuffer.samplesGenerated = 0
+    audioBuffer.audioQueue = []
+    audioBuffer.totalQueued = 0
+    audioBuffer.audioBuffer = Buffer.alloc(0)
+    audioBuffer.bufferReadOffset = 0
+
+    audioBuffer._read = read
+    audioBuffer.monotone = monotone
+    audioBuffer.addAudioData = addAudioData
+
+    // Create speaker and pipe the stream to it
     speaker = new Speaker({
       channels: 1,
       bitDepth: 16,
       sampleRate: 44100,
-      highWaterMark: 1024, // Smaller internal buffer
     })
 
-    speaker.on('drain', () => {
-      console.log('Speaker drained, ready for more data')
-    })
-
+    audioBuffer.pipe(speaker)
     currentPlayerId = userId
+    console.log('Initialized pull-based audio stream for user:', userId)
   }
-  return speaker
+  return audioBuffer
 }
 
 function closeSpeaker() {
@@ -150,6 +241,16 @@ function nextPlayer(completed = false) {
 
   saveData()
   io.emit('game-state-update', gameState)
+}
+
+// Add these variables at the top
+let audioDebugStats = {
+  packetsReceived: 0,
+  totalBytesReceived: 0,
+  lastPacketTime: 0,
+  avgPacketInterval: 0,
+  speakerBackpressure: 0,
+  bufferLevel: 0,
 }
 
 // Socket.IO connection handling
@@ -259,25 +360,30 @@ io.on('connection', (socket) => {
 
   // Handle audio stream
   socket.on('audio-stream', (audioData) => {
-    if (!userId || !gameState.currentPlayer || gameState.currentPlayer.id !== userId) return
+    const now = Date.now()
+    audioDebugStats.packetsReceived++
+    audioDebugStats.totalBytesReceived += audioData.byteLength
+
+    if (audioDebugStats.lastPacketTime > 0) {
+      const interval = now - audioDebugStats.lastPacketTime
+      audioDebugStats.avgPacketInterval = audioDebugStats.avgPacketInterval * 0.9 + interval * 0.1
+    }
+    audioDebugStats.lastPacketTime = now
+
+    if (!userId || !gameState.currentPlayer || gameState.currentPlayer.id !== userId) {
+      return
+    }
 
     try {
-      const currentSpeaker = initializeSpeaker(userId)
+      const audioStream = initializeSpeaker(userId)
       const pcmBuffer = Buffer.from(audioData)
 
-      // Accumulate audio data
-      audioBuffer = Buffer.concat([audioBuffer, pcmBuffer])
-
-      // Only write when we have enough data
-      while (audioBuffer.length >= TARGET_CHUNK_SIZE) {
-        const chunk = audioBuffer.subarray(0, TARGET_CHUNK_SIZE)
-        audioBuffer = audioBuffer.subarray(TARGET_CHUNK_SIZE)
-        currentSpeaker.write(chunk)
-      }
+      // Just add to the buffer - Speaker will pull when ready
+      audioStream.addAudioData(pcmBuffer)
 
       socket.broadcast.emit('audio-output', audioData)
     } catch (error) {
-      console.error('Error playing audio:', error)
+      console.error('[AUDIO DEBUG] Error:', error)
     }
   })
 
