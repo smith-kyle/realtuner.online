@@ -4,8 +4,7 @@ const { Server } = require('socket.io')
 const { v4: uuidv4 } = require('uuid')
 const fs = require('fs')
 const path = require('path')
-const Speaker = require('speaker')
-const { Readable } = require('stream')
+const { spawn } = require('child_process')
 
 const app = express()
 const server = http.createServer(app)
@@ -35,129 +34,148 @@ const RECONNECT_GRACE_PERIOD = 30000 // 30 seconds to reconnect
 // Track active connections by user ID
 let activeConnections = new Map() // userId -> socketId
 
-// Audio speaker setup
-let speaker = null
+// Audio FFplay setup
+let ffplayProcess = null
 let currentPlayerId = null
-let audioBuffer = null
-const TARGET_CHUNK_SIZE = 4096 // Larger chunks for smoother playback
+let audioFileStream = null
+let firstAudioWriteTime = null
+let audioSessionStartTime = null
 
-function monotone(n) {
-  const sampleSize = this.bitDepth / 8
-  const blockAlign = sampleSize * this.channels
-  const numSamples = (n / blockAlign) | 0
-  const buf = Buffer.alloc(numSamples * blockAlign)
-  const amplitude = 32760 // Max amplitude for 16-bit audio
-  console.log('Generating sine wave', numSamples)
-
-  // the "angle" used in the function, adjusted for the number of
-  // channels and sample rate. This value is like the period of the wave.
-  const t = (Math.PI * 2 * 440) / this.sampleRate
-
-  for (let i = 0; i < numSamples; i++) {
-    // fill with a simple sine wave at max amplitude
-    for (let channel = 0; channel < this.channels; channel++) {
-      const s = this.samplesGenerated + i
-      const val = Math.round(amplitude * Math.sin(t * s)) // sine wave
-      const offset = i * sampleSize * this.channels + channel * sampleSize
-      buf[`writeInt${this.bitDepth}LE`](val, offset)
-    }
+function calculateAverageVolume(audioBuffer) {
+  // Handle both ArrayBuffer and Node.js Buffer
+  let samples
+  if (audioBuffer instanceof Buffer) {
+    // Node.js Buffer - use its buffer property to get ArrayBuffer
+    samples = new Int16Array(audioBuffer.buffer, audioBuffer.byteOffset, audioBuffer.length / 2)
+  } else {
+    // ArrayBuffer - use directly
+    samples = new Int16Array(audioBuffer)
   }
 
-  this.push(buf)
+  let sum = 0
+  let peak = 0
+  // Print the first 10 samples
 
-  this.samplesGenerated += numSamples
+  // Calculate RMS (Root Mean Square) volume and peak
+  for (let i = 0; i < samples.length; i++) {
+    const sample = samples[i] / 32768 // Normalize to -1 to 1 range
+    sum += sample * sample
+    peak = Math.max(peak, Math.abs(sample))
+  }
+
+  const rms = Math.sqrt(sum / samples.length)
+  const volumeDb = rms > 0 ? 20 * Math.log10(rms) : -Infinity
+
+  return {
+    rms: rms.toFixed(4),
+    db: isFinite(volumeDb) ? volumeDb.toFixed(1) : '-∞',
+    peak: peak.toFixed(4),
+    volumePercent: (rms * 100).toFixed(1),
+  }
 }
 
-function addAudioData(buffer) {
-  this.audioBuffer = Buffer.concat([this.audioBuffer, buffer])
-  this.totalQueued += buffer.length
-}
+function initializeFFplayAudio(userId) {
+  if (!ffplayProcess || ffplayProcess.killed || currentPlayerId !== userId) {
+    const startTime = Date.now()
+    console.log(`[TIMING] Starting ffplay process for user ${userId} at ${startTime}`)
 
-function read(size) {
-  const availableBytes = this.audioBuffer.length - this.bufferReadOffset
-
-  if (availableBytes === 0) {
-    return this.monotone(size)
-  }
-
-  const sampleSize = this.bitDepth / 8
-  const blockAlign = sampleSize * this.channels
-  const requestedSamples = Math.floor(size / blockAlign)
-  const availableSamples = Math.floor(availableBytes / sampleSize)
-  const samplesToRead = Math.min(requestedSamples, availableSamples)
-
-  const buf = Buffer.alloc(samplesToRead * blockAlign)
-
-  for (let i = 0; i < samplesToRead; i++) {
-    const sourceOffset = this.bufferReadOffset + i * sampleSize
-    const val = this.audioBuffer.readInt16LE(sourceOffset)
-
-    for (let channel = 0; channel < this.channels; channel++) {
-      const targetOffset = i * blockAlign + channel * sampleSize
-      buf.writeInt16LE(val, targetOffset)
-    }
-  }
-
-  this.bufferReadOffset += samplesToRead * sampleSize
-
-  // Clean up consumed data periodically
-  if (this.bufferReadOffset > 8192) {
-    // Arbitrary threshold
-    this.audioBuffer = this.audioBuffer.slice(this.bufferReadOffset)
-    this.bufferReadOffset = 0
-  }
-
-  this.push(buf)
-  this.totalQueued -= buf.length
-  this.samplesGenerated += samplesToRead
-}
-
-function initializeSpeaker(userId) {
-  if (!audioBuffer || currentPlayerId !== userId) {
-    // Clean up old speaker
-    if (speaker) {
-      speaker.end()
+    // Clean up old process
+    if (ffplayProcess && !ffplayProcess.killed) {
+      ffplayProcess.kill()
     }
 
-    // Create new audio buffer stream
-    audioBuffer = new Readable()
-    audioBuffer.bitDepth = 16
-    audioBuffer.channels = 1
-    audioBuffer.sampleRate = 44100
-    audioBuffer.samplesGenerated = 0
-    audioBuffer.audioQueue = []
-    audioBuffer.totalQueued = 0
-    audioBuffer.audioBuffer = Buffer.alloc(0)
-    audioBuffer.bufferReadOffset = 0
+    // Spawn new ffplay process
+    ffplayProcess = spawn('ffplay', [
+      '-fflags',
+      'nobuffer',
+      '-analyzeduration',
+      '0',
+      '-probesize',
+      '32',
+      '-f',
+      's16le', // 16-bit signed little-endian PCM (matches client Int16Array)
+      '-ar',
+      '44100', // Sample rate
+      '-ch_layout',
+      'mono', // Mono channel layout
+      '-nodisp', // No video display
+      '-autoexit', // Exit when input ends
+      'pipe:0', // Read from stdin using pipe protocol
+    ])
 
-    audioBuffer._read = read
-    audioBuffer.monotone = monotone
-    audioBuffer.addAudioData = addAudioData
-
-    // Create speaker and pipe the stream to it
-    speaker = new Speaker({
-      channels: 1,
-      bitDepth: 16,
-      sampleRate: 44100,
+    ffplayProcess.on('spawn', () => {
+      const spawnTime = Date.now()
+      console.log(`[TIMING] FFplay spawned in ${spawnTime - startTime}ms`)
     })
 
-    audioBuffer.pipe(speaker)
+    // Add stdin error handling
+    ffplayProcess.stdin.on('error', (error) => {
+      if (error.code === 'EPIPE') {
+        console.log('FFplay stdin closed, process likely ended')
+      } else {
+        console.error('FFplay stdin error:', error)
+      }
+    })
+
+    ffplayProcess.stderr.on('data', (data) => {
+      // FFplay outputs info to stderr, suppress unless debugging
+      // console.log('FFplay:', data.toString())
+    })
+
+    ffplayProcess.on('error', (error) => {
+      console.error('FFplay process error:', error)
+    })
+
+    ffplayProcess.on('exit', (code) => {
+      console.log('FFplay exited with code:', code)
+      // Mark process as dead
+      if (ffplayProcess) {
+        ffplayProcess.killed = true
+      }
+    })
+
     currentPlayerId = userId
-    console.log('Initialized pull-based audio stream for user:', userId)
+    audioSessionStartTime = Date.now()
+    firstAudioWriteTime = null
+    console.log(
+      `[TIMING] Initialized FFplay audio stream for user: ${userId} at ${audioSessionStartTime}`,
+    )
   }
-  return audioBuffer
+  return ffplayProcess
 }
 
-function closeSpeaker() {
-  if (speaker) {
+function closeFFplayAudio() {
+  if (ffplayProcess && !ffplayProcess.killed) {
     try {
-      speaker.end()
-      console.log('Speaker closed for user:', currentPlayerId)
+      // Close stdin first to allow graceful shutdown
+      if (ffplayProcess.stdin && !ffplayProcess.stdin.destroyed) {
+        ffplayProcess.stdin.end()
+      }
+
+      // Give it a moment to close gracefully, then force kill if needed
+      setTimeout(() => {
+        if (ffplayProcess && !ffplayProcess.killed) {
+          ffplayProcess.kill('SIGTERM')
+        }
+      }, 100)
+
+      console.log('FFplay closed for user:', currentPlayerId)
     } catch (error) {
-      console.error('Error closing speaker:', error)
+      console.error('Error closing FFplay:', error)
     }
-    speaker = null
+    ffplayProcess = null
     currentPlayerId = null
+  }
+
+  // Close audio file stream
+  if (audioFileStream) {
+    try {
+      audioFileStream.end()
+      console.log('Audio recording file closed')
+    } catch (error) {
+      console.error('Error closing audio file stream:', error)
+    }
+    audioFileStream = null
   }
 }
 
@@ -177,6 +195,7 @@ function loadData() {
 function saveData() {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(gameState, null, 2))
+    console.log('Saved data to disk')
   } catch (error) {
     console.error('Error saving data:', error)
   }
@@ -210,8 +229,8 @@ function nextPlayer(completed = false) {
     gameState.totalTunes++
   }
 
-  // Close speaker when current player's turn ends
-  closeSpeaker()
+  // Close FFplay when current player's turn ends
+  closeFFplayAudio()
 
   gameState.currentPlayer = null
   gameState.timeLeft = 0
@@ -227,6 +246,11 @@ function nextPlayer(completed = false) {
       gameState.currentPlayer.socketId = activeConnections.get(gameState.currentPlayer.id)
     }
 
+    const playerTurnStartTime = Date.now()
+    console.log(
+      `[TIMING] Player ${gameState.currentPlayer.name} turn started at ${playerTurnStartTime}`,
+    )
+
     startTimer()
   } else {
     stopTimer()
@@ -234,16 +258,6 @@ function nextPlayer(completed = false) {
 
   saveData()
   io.emit('game-state-update', gameState)
-}
-
-// Add these variables at the top
-let audioDebugStats = {
-  packetsReceived: 0,
-  totalBytesReceived: 0,
-  lastPacketTime: 0,
-  avgPacketInterval: 0,
-  speakerBackpressure: 0,
-  bufferLevel: 0,
 }
 
 // Socket.IO connection handling
@@ -353,26 +367,53 @@ io.on('connection', (socket) => {
 
   // Handle audio stream
   socket.on('audio-stream', (audioData) => {
-    const now = Date.now()
-    audioDebugStats.packetsReceived++
-    audioDebugStats.totalBytesReceived += audioData.byteLength
-
-    if (audioDebugStats.lastPacketTime > 0) {
-      const interval = now - audioDebugStats.lastPacketTime
-      audioDebugStats.avgPacketInterval = audioDebugStats.avgPacketInterval * 0.9 + interval * 0.1
-    }
-    audioDebugStats.lastPacketTime = now
-
     if (!userId || !gameState.currentPlayer || gameState.currentPlayer.id !== userId) {
       return
     }
 
     try {
-      const audioStream = initializeSpeaker(userId)
+      const ffplayProcess = initializeFFplayAudio(userId)
+
+      // Debug: Check what audioData actually is
+      console.log(`[DEBUG] audioData type: ${typeof audioData}`)
+      console.log(`[DEBUG] audioData constructor: ${audioData.constructor.name}`)
+      console.log(
+        `[DEBUG] audioData length/byteLength: ${audioData.length || audioData.byteLength}`,
+      )
+
       const pcmBuffer = Buffer.from(audioData)
 
-      // Just add to the buffer - Speaker will pull when ready
-      audioStream.addAudioData(pcmBuffer)
+      // Calculate and log volume
+      const volume = calculateAverageVolume(audioData)
+      console.log(
+        `[VOLUME] ${pcmBuffer.length}b, ${volume.volumePercent}%, RMS: ${volume.rms}, dB: ${volume.db}, Peak: ${volume.peak}`,
+      )
+
+      // Write directly to ffplay stdin - ffplay handles buffering
+      if (
+        ffplayProcess &&
+        !ffplayProcess.killed &&
+        ffplayProcess.stdin &&
+        !ffplayProcess.stdin.destroyed
+      ) {
+        try {
+          // Track first audio write timing
+          if (!firstAudioWriteTime) {
+            firstAudioWriteTime = Date.now()
+            const timeSinceSessionStart = firstAudioWriteTime - audioSessionStartTime
+            const volume = calculateAverageVolume(audioData)
+            console.log(
+              `[TIMING] First audio write at ${firstAudioWriteTime}, ${timeSinceSessionStart}ms after session start, Volume: ${volume.volumePercent}%`,
+            )
+          }
+
+          ffplayProcess.stdin.write(pcmBuffer)
+        } catch (error) {
+          if (error.code !== 'EPIPE') {
+            console.error('Error writing to ffplay stdin:', error)
+          }
+        }
+      }
 
       socket.broadcast.emit('audio-output', audioData)
     } catch (error) {
@@ -478,8 +519,8 @@ process.on('SIGINT', () => {
   console.log('Shutting down gracefully...')
   saveData()
 
-  // Close speaker if it exists
-  closeSpeaker()
+  // Close FFplay if it exists
+  closeFFplayAudio()
 
   server.close(() => {
     console.log('Server closed')

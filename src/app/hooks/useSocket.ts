@@ -20,6 +20,7 @@ export function useSocket() {
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const userIdRef = useRef<string | null>(null)
   const isStreamingRef = useRef<boolean>(false)
+  const lastSentTimeRef = useRef<Date>(new Date())
 
   useEffect(() => {
     // Get or generate persistent user ID
@@ -126,6 +127,7 @@ export function useSocket() {
         console.log('Audio stream already active')
         return true
       }
+      isStreamingRef.current = true
 
       // Get microphone stream
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -152,7 +154,7 @@ export function useSocket() {
       sourceRef.current = source
 
       // Buffer for 1 second of audio (44100 samples for 1 channel, 16-bit)
-      const BUFFER_SIZE = 44100
+      const BUFFER_SIZE = 1024
       let audioBuffer: Int16Array | null = null
       let bufferOffset = 0
 
@@ -176,6 +178,12 @@ export function useSocket() {
         // If buffer is full, send it and reset
         if (bufferOffset >= BUFFER_SIZE) {
           socketRef.current.emit('audio-stream', audioBuffer.buffer)
+          console.log(
+            'Between packets',
+            new Date().getTime() - lastSentTimeRef.current.getTime(),
+            'ms',
+          )
+          lastSentTimeRef.current = new Date()
           audioBuffer = null
           bufferOffset = 0
         }
@@ -184,7 +192,6 @@ export function useSocket() {
       // Connect the audio graph (don't connect to destination to avoid feedback)
       source.connect(node)
 
-      isStreamingRef.current = true
       console.log('Web Audio API stream started successfully')
       return true
     } catch (error) {
