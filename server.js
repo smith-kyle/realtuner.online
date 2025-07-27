@@ -71,18 +71,11 @@ function monotone(n) {
 function addAudioData(buffer) {
   this.audioBuffer = Buffer.concat([this.audioBuffer, buffer])
   this.totalQueued += buffer.length
-  console.log(
-    'Added audio buffer:',
-    buffer.length,
-    'bytes, total buffered:',
-    this.audioBuffer.length - this.bufferReadOffset,
-  )
 }
 
 function read(size) {
   const availableBytes = this.audioBuffer.length - this.bufferReadOffset
 
-  console.log('read', size, 'availableBytes', availableBytes)
   if (availableBytes === 0) {
     return this.monotone(size)
   }
