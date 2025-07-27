@@ -20,7 +20,6 @@ export function useSocket() {
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const userIdRef = useRef<string | null>(null)
   const isStreamingRef = useRef<boolean>(false)
-  const lastSentTimeRef = useRef<Date>(new Date())
 
   useEffect(() => {
     // Get or generate persistent user ID
@@ -178,12 +177,6 @@ export function useSocket() {
         // If buffer is full, send it and reset
         if (bufferOffset >= BUFFER_SIZE) {
           socketRef.current.emit('audio-stream', audioBuffer.buffer)
-          console.log(
-            'Between packets',
-            new Date().getTime() - lastSentTimeRef.current.getTime(),
-            'ms',
-          )
-          lastSentTimeRef.current = new Date()
           audioBuffer = null
           bufferOffset = 0
         }

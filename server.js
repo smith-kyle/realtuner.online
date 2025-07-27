@@ -1,7 +1,6 @@
 const express = require('express')
 const http = require('http')
 const { Server } = require('socket.io')
-const { v4: uuidv4 } = require('uuid')
 const fs = require('fs')
 const path = require('path')
 const { spawn } = require('child_process')
@@ -38,41 +37,6 @@ let activeConnections = new Map() // userId -> socketId
 let ffplayProcess = null
 let currentPlayerId = null
 let audioFileStream = null
-let firstAudioWriteTime = null
-let audioSessionStartTime = null
-
-function calculateAverageVolume(audioBuffer) {
-  // Handle both ArrayBuffer and Node.js Buffer
-  let samples
-  if (audioBuffer instanceof Buffer) {
-    // Node.js Buffer - use its buffer property to get ArrayBuffer
-    samples = new Int16Array(audioBuffer.buffer, audioBuffer.byteOffset, audioBuffer.length / 2)
-  } else {
-    // ArrayBuffer - use directly
-    samples = new Int16Array(audioBuffer)
-  }
-
-  let sum = 0
-  let peak = 0
-  // Print the first 10 samples
-
-  // Calculate RMS (Root Mean Square) volume and peak
-  for (let i = 0; i < samples.length; i++) {
-    const sample = samples[i] / 32768 // Normalize to -1 to 1 range
-    sum += sample * sample
-    peak = Math.max(peak, Math.abs(sample))
-  }
-
-  const rms = Math.sqrt(sum / samples.length)
-  const volumeDb = rms > 0 ? 20 * Math.log10(rms) : -Infinity
-
-  return {
-    rms: rms.toFixed(4),
-    db: isFinite(volumeDb) ? volumeDb.toFixed(1) : '-∞',
-    peak: peak.toFixed(4),
-    volumePercent: (rms * 100).toFixed(1),
-  }
-}
 
 function initializeFFplayAudio(userId) {
   if (!ffplayProcess || ffplayProcess.killed || currentPlayerId !== userId) {
@@ -135,11 +99,6 @@ function initializeFFplayAudio(userId) {
     })
 
     currentPlayerId = userId
-    audioSessionStartTime = Date.now()
-    firstAudioWriteTime = null
-    console.log(
-      `[TIMING] Initialized FFplay audio stream for user: ${userId} at ${audioSessionStartTime}`,
-    )
   }
   return ffplayProcess
 }
@@ -374,20 +333,7 @@ io.on('connection', (socket) => {
     try {
       const ffplayProcess = initializeFFplayAudio(userId)
 
-      // Debug: Check what audioData actually is
-      console.log(`[DEBUG] audioData type: ${typeof audioData}`)
-      console.log(`[DEBUG] audioData constructor: ${audioData.constructor.name}`)
-      console.log(
-        `[DEBUG] audioData length/byteLength: ${audioData.length || audioData.byteLength}`,
-      )
-
       const pcmBuffer = Buffer.from(audioData)
-
-      // Calculate and log volume
-      const volume = calculateAverageVolume(audioData)
-      console.log(
-        `[VOLUME] ${pcmBuffer.length}b, ${volume.volumePercent}%, RMS: ${volume.rms}, dB: ${volume.db}, Peak: ${volume.peak}`,
-      )
 
       // Write directly to ffplay stdin - ffplay handles buffering
       if (
@@ -397,16 +343,6 @@ io.on('connection', (socket) => {
         !ffplayProcess.stdin.destroyed
       ) {
         try {
-          // Track first audio write timing
-          if (!firstAudioWriteTime) {
-            firstAudioWriteTime = Date.now()
-            const timeSinceSessionStart = firstAudioWriteTime - audioSessionStartTime
-            const volume = calculateAverageVolume(audioData)
-            console.log(
-              `[TIMING] First audio write at ${firstAudioWriteTime}, ${timeSinceSessionStart}ms after session start, Volume: ${volume.volumePercent}%`,
-            )
-          }
-
           ffplayProcess.stdin.write(pcmBuffer)
         } catch (error) {
           if (error.code !== 'EPIPE') {
