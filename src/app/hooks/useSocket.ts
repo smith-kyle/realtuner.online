@@ -36,7 +36,7 @@ export function useSocket() {
     userIdRef.current = userId
 
     // Initialize socket connection
-    const newSocket = io('http://localhost:3001')
+    const newSocket = io('https://api.realtuner.online')
 
     newSocket.on('connect', () => {
       console.log('Socket connected, identifying user:', userId)
