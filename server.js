@@ -21,14 +21,16 @@ const DATA_FILE = path.join(__dirname, 'tuner-data.json')
 let gameState = {
   queue: [],
   currentPlayer: null,
-  timeLeft: 0,
   totalTunes: 0,
   isActive: false,
 }
 
+// Auto-incrementing counter for anonymous player names
+let playerCounter = 0
+
 // Track disconnected users for graceful reconnection
 let disconnectedUsers = new Map() // userId -> { player, disconnectTime }
-const RECONNECT_GRACE_PERIOD = 30000 // 30 seconds to reconnect
+const RECONNECT_GRACE_PERIOD = 10000 // 10 seconds to reconnect
 
 // Track active connections by user ID
 let activeConnections = new Map() // userId -> socketId
@@ -160,29 +162,6 @@ function saveData() {
   }
 }
 
-// Timer management
-let gameTimer = null
-
-function startTimer() {
-  if (gameTimer) clearInterval(gameTimer)
-
-  gameTimer = setInterval(() => {
-    if (gameState.timeLeft > 0) {
-      gameState.timeLeft--
-      io.emit('timer-update', gameState.timeLeft)
-    } else {
-      nextPlayer(true) // Timer completed, count as a completed tune
-    }
-  }, 1000)
-}
-
-function stopTimer() {
-  if (gameTimer) {
-    clearInterval(gameTimer)
-    gameTimer = null
-  }
-}
-
 function nextPlayer(completed = false) {
   if (gameState.currentPlayer && completed) {
     gameState.totalTunes++
@@ -192,12 +171,10 @@ function nextPlayer(completed = false) {
   closeFFplayAudio()
 
   gameState.currentPlayer = null
-  gameState.timeLeft = 0
   gameState.isActive = false
 
   if (gameState.queue.length > 0) {
     gameState.currentPlayer = gameState.queue.shift()
-    gameState.timeLeft = 30
     gameState.isActive = true
 
     // Update socket ID for current player if they're connected
@@ -205,14 +182,7 @@ function nextPlayer(completed = false) {
       gameState.currentPlayer.socketId = activeConnections.get(gameState.currentPlayer.id)
     }
 
-    const playerTurnStartTime = Date.now()
-    console.log(
-      `[TIMING] Player ${gameState.currentPlayer.name} turn started at ${playerTurnStartTime}`,
-    )
-
-    startTimer()
-  } else {
-    stopTimer()
+    console.log(`Player ${gameState.currentPlayer.name} turn started`)
   }
 
   saveData()
@@ -268,14 +238,9 @@ io.on('connection', (socket) => {
   })
 
   // Handle joining queue
-  socket.on('join-queue', (playerName) => {
+  socket.on('join-queue', () => {
     if (!userId) {
       socket.emit('error', 'User not identified')
-      return
-    }
-
-    if (!playerName || typeof playerName !== 'string') {
-      socket.emit('error', 'Invalid player name')
       return
     }
 
@@ -290,7 +255,7 @@ io.on('connection', (socket) => {
 
     const player = {
       id: userId,
-      name: playerName.trim(),
+      name: 'Tuner ' + (++playerCounter),
       socketId: socket.id,
       joinedAt: new Date().toISOString(),
     }

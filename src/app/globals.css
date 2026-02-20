@@ -1,36 +1,28 @@
-@import "tailwindcss";
-
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #E8742A;
+  --foreground: #1a0a00;
+  --panel-bg: #F5E0C8;
+  --border-color: #8B4513;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+  border-radius: 0 !important;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
 }
 
-/* Mobile-friendly improvements */
-* {
-  box-sizing: border-box;
+h1 em {
+  font-style: italic;
+  font-weight: 900;
+  text-decoration: underline;
 }
 
-/* Improve touch targets on mobile */
 button,
 input[type="button"],
 input[type="submit"] {
@@ -38,13 +30,7 @@ input[type="submit"] {
   min-width: 44px;
 }
 
-/* Prevent horizontal scroll on mobile */
 html,
 body {
   overflow-x: hidden;
-}
-
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
 }

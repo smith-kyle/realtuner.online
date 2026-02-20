@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { GameState } from '../types'
 
 interface QueueDisplayProps {
@@ -9,23 +8,6 @@ interface QueueDisplayProps {
 }
 
 export function QueueDisplay({ gameState, isConnected }: QueueDisplayProps) {
-  const [timeDisplay, setTimeDisplay] = useState('00:00')
-
-  useEffect(() => {
-    const minutes = Math.floor(gameState.timeLeft / 60)
-    const seconds = gameState.timeLeft % 60
-    setTimeDisplay(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`)
-  }, [gameState.timeLeft])
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
-
-  const getProgressPercentage = () => {
-    return ((30 - gameState.timeLeft) / 30) * 100
-  }
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl">
@@ -54,15 +36,6 @@ export function QueueDisplay({ gameState, isConnected }: QueueDisplayProps) {
               <div className="text-lg font-medium text-blue-800">
                 {gameState.currentPlayer.name}
               </div>
-              <div className="text-2xl font-bold text-blue-600">{timeDisplay}</div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-1000"
-                style={{ width: `${getProgressPercentage()}%` }}
-              ></div>
             </div>
 
             {/* Status Indicator */}

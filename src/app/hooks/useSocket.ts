@@ -7,7 +7,6 @@ export function useSocket() {
   const [gameState, setGameState] = useState<GameState>({
     queue: [],
     currentPlayer: null,
-    timeLeft: 0,
     totalTunes: 0,
     isActive: false,
   })
@@ -36,7 +35,7 @@ export function useSocket() {
     userIdRef.current = userId
 
     // Initialize socket connection
-    const newSocket = io('https://api.realtuner.online')
+    const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL ?? 'https://api.realtuner.online')
 
     newSocket.on('connect', () => {
       console.log('Socket connected, identifying user:', userId)
@@ -75,10 +74,6 @@ export function useSocket() {
       }
     })
 
-    newSocket.on('timer-update', (timeLeft: number) => {
-      setGameState((prev) => ({ ...prev, timeLeft }))
-    })
-
     newSocket.on('queue-joined', (player: Player) => {
       console.log('Successfully joined queue:', player)
     })
@@ -102,9 +97,9 @@ export function useSocket() {
     }
   }, [])
 
-  const joinQueue = (playerName: string) => {
-    if (socketRef.current && playerName.trim()) {
-      socketRef.current.emit('join-queue', playerName.trim())
+  const joinQueue = () => {
+    if (socketRef.current) {
+      socketRef.current.emit('join-queue')
     }
   }
 

@@ -8,7 +8,6 @@ export interface Player {
 export interface GameState {
   queue: Player[]
   currentPlayer: Player | null
-  timeLeft: number
   totalTunes: number
   isActive: boolean
 }
