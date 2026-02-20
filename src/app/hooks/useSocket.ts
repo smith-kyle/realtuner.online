@@ -121,8 +121,6 @@ export function useSocket() {
         console.log('Audio stream already active')
         return true
       }
-      isStreamingRef.current = true
-
       // Get microphone stream
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -139,6 +137,7 @@ export function useSocket() {
       const audioContext = new AudioContext({ sampleRate: 44100 })
       audioContextRef.current = audioContext
 
+      await audioContext.resume()
       await audioContext.audioWorklet.addModule('/audio-processor.js')
 
       const node = new AudioWorkletNode(audioContext, 'audio-processor')
@@ -180,9 +179,11 @@ export function useSocket() {
       // Connect the audio graph (don't connect to destination to avoid feedback)
       source.connect(node)
 
+      isStreamingRef.current = true
       console.log('Web Audio API stream started successfully')
       return true
     } catch (error) {
+      isStreamingRef.current = false
       console.error('Error accessing microphone:', error)
       setError('Failed to access microphone')
       return false
