@@ -121,6 +121,7 @@ export function useSocket() {
         console.log('Audio stream already active')
         return true
       }
+      isStreamingRef.current = true
       // Get microphone stream
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -179,7 +180,6 @@ export function useSocket() {
       // Connect the audio graph (don't connect to destination to avoid feedback)
       source.connect(node)
 
-      isStreamingRef.current = true
       console.log('Web Audio API stream started successfully')
       return true
     } catch (error) {
