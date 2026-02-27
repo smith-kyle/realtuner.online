@@ -89,13 +89,11 @@ function FAQ() {
       <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '8px', color: '#1a0a00' }}>FAQ</h2>
       <dl>
         <dt style={dtStyle}>Why?</dt>
-        <dd style={ddStyle}>Real guitarists like us want to tune on a real tuner.</dd>
+        <dd style={ddStyle}>Real guitarists use real tuners.</dd>
 
         <dt style={dtStyle}>What instruments can I tune with this?</dt>
         <dd style={ddStyle}>
-          Guitar, bass, ukulele, violin, mandolin, banjo, cello, viola, sitar, pedal steel, lap steel,
-          dobro, resonator guitar, bouzouki, oud, dulcimer, autoharp, charango, cuatro, bajo sexto,
-          mandocello, tenor guitar, baritone guitar — and probably your kazoo if you try hard enough.
+          Guitar, bass, ukulele, violin, mandolin, banjo, cello.
         </dd>
 
         <dt style={dtStyle}>Where is this tuner physically located?</dt>
