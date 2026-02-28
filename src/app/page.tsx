@@ -63,62 +63,92 @@ export default function Home() {
 }
 
 function FAQ() {
-  const faqStyle: React.CSSProperties = {
-    borderTop: '3px solid #8B4513',
-    paddingTop: '24px',
-    marginTop: '48px',
-  }
-
-  const dtStyle: React.CSSProperties = {
-    fontWeight: 'bold',
-    fontSize: '16px',
-    color: '#1a0a00',
-    marginBottom: '6px',
-    marginTop: '20px',
-  }
-
-  const ddStyle: React.CSSProperties = {
-    marginLeft: '0',
-    color: '#1a0a00',
-    marginBottom: '4px',
-    lineHeight: '1.5',
-  }
+  const items = [
+    {
+      q: 'Why?',
+      a: <span>Real guitarists use real tuners.</span>,
+    },
+    {
+      q: 'Where is this tuner physically located?',
+      a: (
+        <>
+          Inside this box.
+          <div>
+            <img style={{ maxWidth: "calc(min(100%, 500px))" }} src="/realtuner.webp" alt="The tuner box" />
+          </div>
+        </>
+      ),
+    },
+    {
+      q: 'And I can use it whenever I like?',
+      a: <span>Yes.</span>,
+    },
+    {
+      q: 'How does it work?',
+      a: <img style={{ maxWidth: "calc(min(100%, 500px))" }} src="/real-tuner-architecture.svg" alt="Architecture diagram" />,
+    },
+    {
+      q: 'What instruments can I tune?',
+      a: <span>Guitar, bass, ukulele, violin, mandolin, banjo, cello.</span>,
+    },
+  ]
 
   return (
-    <section style={faqStyle}>
-      <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '8px', color: '#1a0a00' }}>FAQ</h2>
-      <dl>
-        <dt style={dtStyle}>Why?</dt>
-        <dd style={ddStyle}>Real guitarists use real tuners.</dd>
-
-        <dt style={dtStyle}>What instruments can I tune with this?</dt>
-        <dd style={ddStyle}>
-          Guitar, bass, ukulele, violin, mandolin, banjo, cello.
-        </dd>
-
-        <dt style={dtStyle}>Where is this tuner physically located?</dt>
-        <dd style={ddStyle}>In my living room.</dd>
-
-        <dt style={dtStyle}>How does it work?</dt>
-        <dd style={ddStyle}>
-          <pre
+    <section
+      style={{
+        borderTop: '3px solid #8B4513',
+        paddingTop: '24px',
+        marginTop: '48px',
+      }}
+    >
+      <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '16px', color: '#1a0a00' }}>
+        FAQ
+      </h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {items.map(({ q, a }) => (
+          <details
+            key={q}
             style={{
-              fontFamily: 'monospace',
-              fontSize: '13px',
-              backgroundColor: '#EDCDA8',
-              border: '2px solid #8B4513',
-              padding: '12px',
-              overflowX: 'auto',
-              color: '#1a0a00',
-              marginTop: '8px',
+              border: '1px solid #c8874a',
+              borderRadius: '6px',
+              overflow: 'hidden',
             }}
-          >{`  YOU (browser)           SERVER              TUNER
-  ──────────              ──────────          ──────────
-  mic audio  ──WebSocket──► relay  ──audio──► TU3 input
-  video feed ◄─Cloudflare─ camera ◄─camera── TU3 display
-  queue join ──WebSocket──► queue mgr`}</pre>
-        </dd>
-      </dl>
+          >
+            <summary
+              style={{
+                padding: '12px 16px',
+                fontWeight: 'bold',
+                fontSize: '15px',
+                color: '#1a0a00',
+                background: '#fdf3e7',
+                cursor: 'pointer',
+                userSelect: 'none',
+                listStyle: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+            >
+              <span style={{ color: '#8B4513', fontSize: '12px', flexShrink: 0 }}>▶</span>
+              {q}
+            </summary>
+            <div
+              style={{
+                padding: '12px 16px',
+                color: '#1a0a00',
+                lineHeight: '1.6',
+                borderTop: '1px solid #c8874a',
+                background: '#fffaf5',
+              }}
+            >
+              {a}
+            </div>
+          </details>
+        ))}
+      </div>
+      <style>{`
+        details[open] > summary > span:first-child { transform: rotate(90deg); display: inline-block; }
+      `}</style>
     </section>
   )
 }
