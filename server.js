@@ -35,6 +35,29 @@ const RECONNECT_GRACE_PERIOD = 10000 // 10 seconds to reconnect
 // Track active connections by user ID
 let activeConnections = new Map() // userId -> socketId
 
+// Inactivity timeout for current player
+let inactivityTimer = null
+const INACTIVITY_TIMEOUT = 5000 // 5 seconds
+
+function clearInactivityTimer() {
+  if (inactivityTimer) {
+    clearTimeout(inactivityTimer)
+    inactivityTimer = null
+  }
+}
+
+function resetInactivityTimer() {
+  clearInactivityTimer()
+  if (gameState.currentPlayer) {
+    inactivityTimer = setTimeout(() => {
+      if (gameState.currentPlayer) {
+        console.log(`Player ${gameState.currentPlayer.name} inactive for ${INACTIVITY_TIMEOUT / 1000}s, ending turn`)
+        nextPlayer(false)
+      }
+    }, INACTIVITY_TIMEOUT)
+  }
+}
+
 // Audio FFplay setup
 let ffplayProcess = null
 let currentPlayerId = null
@@ -169,6 +192,7 @@ function nextPlayer(completed = false) {
 
   // Close FFplay when current player's turn ends
   closeFFplayAudio()
+  clearInactivityTimer()
 
   gameState.currentPlayer = null
   gameState.isActive = false
@@ -182,6 +206,7 @@ function nextPlayer(completed = false) {
       gameState.currentPlayer.socketId = activeConnections.get(gameState.currentPlayer.id)
     }
 
+    resetInactivityTimer()
     console.log(`Player ${gameState.currentPlayer.name} turn started`)
   }
 
@@ -295,6 +320,8 @@ io.on('connection', (socket) => {
       return
     }
 
+    resetInactivityTimer()
+
     try {
       const ffplayProcess = initializeFFplayAudio(userId)
 
@@ -342,8 +369,8 @@ io.on('connection', (socket) => {
 
     // Small delay to allow for immediate reconnection (e.g., page refresh)
     setTimeout(() => {
-      // Check if user has already reconnected
-      if (activeConnections.has(userId)) {
+      // If the stored socket ID is different, the user reconnected with a new socket
+      if (activeConnections.get(userId) !== socket.id) {
         console.log(`User ${userId} already reconnected, skipping cleanup`)
         return
       }
