@@ -53,7 +53,7 @@ export function QueueSection() {
     width: '100%',
   }
 
-  const waitingCount = gameState.queue.length
+  const waitingCount = gameState.queue.length + (gameState.currentPlayer ? 1 : 0)
 
   return (
     <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
