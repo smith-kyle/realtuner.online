@@ -90,7 +90,7 @@ function FAQ() {
     {
       q: 'How does it work?',
       a: (
-        <div style={{ display: 'inline-block', background: 'var(--foreground)', maxWidth: 'calc(min(100%, 500px))', width: '100%', isolation: 'isolate' }}>
+        <div style={{ display: 'inline-block', background: 'white', maxWidth: 'calc(min(100%, 500px))', width: '100%', isolation: 'isolate' }}>
           <img src="/real-tuner-architecture.svg" alt="Architecture diagram" style={{ display: 'block', width: '100%', }} />
         </div>
       ),
