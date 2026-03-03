@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSocket } from '../hooks/useSocket'
+import { useWebSocket } from '../hooks/useWebSocket'
 
 export function QueueSection() {
-  const { gameState, requestMicrophonePermission, joinQueue, skipTurn, error } = useSocket()
+  const { gameState, requestMicrophonePermission, joinQueue, doneTuning, error } = useWebSocket()
   const [micPending, setMicPending] = useState(false)
   const [micDenied, setMicDenied] = useState(false)
   const [windowWidth, setWindowWidth] = useState(
@@ -13,10 +13,10 @@ export function QueueSection() {
 
   const userId = typeof window !== 'undefined' ? localStorage.getItem('realtuner-user-id') : null
 
-  const isInQueue = userId && gameState.queue.some((p) => p.id === userId)
-  const isCurrentPlayer = userId && gameState.currentPlayer && gameState.currentPlayer.id === userId
+  const isInQueue = userId && gameState.queue.some((p) => p.userId === userId)
+  const isCurrentPlayer = userId && gameState.activeTuner?.userId === userId
   const queuePosition = isInQueue
-    ? gameState.queue.findIndex((p) => p.id === userId) + 1
+    ? gameState.queue.findIndex((p) => p.userId === userId) + 1
     : null
 
   useEffect(() => {
@@ -70,7 +70,7 @@ export function QueueSection() {
               <div style={{ fontWeight: 'bold', fontSize: windowWidth < 768 ? '16px' : '18px', color: '#5C2E00', marginBottom: '12px' }}>
                 It's your turn! Tune away.
               </div>
-              <button onClick={skipTurn} style={{ ...buttonStyle, backgroundColor: '#5C2E00', borderColor: '#3A1A00' }}>
+              <button onClick={doneTuning} style={{ ...buttonStyle, backgroundColor: '#5C2E00', borderColor: '#3A1A00' }}>
                 Done Tuning
               </button>
             </div>

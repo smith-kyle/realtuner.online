@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Player } from '../types'
+import { ActiveTuner } from '../types'
 
 interface CurrentPlayerControlsProps {
-  currentPlayer: Player | null
+  currentPlayer: ActiveTuner | null
   timeLeft: number
   isCurrentPlayer: boolean
-  onSkipTurn: () => void
+  onDoneTuning: () => void
   onStartAudio: () => Promise<boolean>
   onStopAudio: () => void
 }
@@ -16,7 +16,7 @@ export function CurrentPlayerControls({
   currentPlayer,
   timeLeft,
   isCurrentPlayer,
-  onSkipTurn,
+  onDoneTuning,
   onStartAudio,
   onStopAudio,
 }: CurrentPlayerControlsProps) {
@@ -25,10 +25,8 @@ export function CurrentPlayerControls({
 
   useEffect(() => {
     if (isCurrentPlayer && currentPlayer) {
-      // Auto-start audio stream when it's your turn
       handleStartStream()
     } else {
-      // Stop streaming when it's not your turn
       if (isStreaming) {
         handleStopStream()
       }
@@ -56,11 +54,11 @@ export function CurrentPlayerControls({
     setStreamError(null)
   }
 
-  const handleSkipTurn = () => {
+  const handleDoneTuning = () => {
     if (isStreaming) {
       handleStopStream()
     }
-    onSkipTurn()
+    onDoneTuning()
   }
 
   if (!currentPlayer) {
@@ -76,7 +74,6 @@ export function CurrentPlayerControls({
             <div className="text-lg text-gray-800">Start tuning your instrument</div>
           </div>
 
-          {/* Time Display */}
           <div className="text-center mb-4">
             <div className="text-4xl font-bold text-blue-600 mb-2">
               {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
@@ -84,7 +81,6 @@ export function CurrentPlayerControls({
             <div className="text-sm text-gray-600">Time remaining</div>
           </div>
 
-          {/* Progress Bar */}
           <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
             <div
               className="bg-blue-600 h-3 rounded-full transition-all duration-1000"
@@ -92,7 +88,6 @@ export function CurrentPlayerControls({
             ></div>
           </div>
 
-          {/* Stream Status */}
           <div className="mb-4">
             <div className="flex items-center gap-2 mb-2">
               <div
@@ -104,11 +99,9 @@ export function CurrentPlayerControls({
                 {isStreaming ? 'Microphone Live' : 'Microphone Off'}
               </span>
             </div>
-
             {streamError && <div className="text-sm text-red-600 mb-2">{streamError}</div>}
           </div>
 
-          {/* Controls */}
           <div className="space-y-2">
             {!isStreaming ? (
               <button
@@ -127,17 +120,16 @@ export function CurrentPlayerControls({
             )}
 
             <button
-              onClick={handleSkipTurn}
+              onClick={handleDoneTuning}
               className="w-full py-2 px-4 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-colors"
             >
-              Skip My Turn
+              Done Tuning
             </button>
           </div>
 
-          {/* Instructions */}
           <div className="mt-4 text-sm text-gray-500 text-center">
-            <p>Your microphone is being streamed to everyone.</p>
-            <p>Tune your instrument and enjoy your 30 seconds!</p>
+            <p>Your microphone is being streamed to the tuner.</p>
+            <p>Tune your instrument and click Done when finished!</p>
           </div>
         </>
       ) : (
@@ -149,7 +141,6 @@ export function CurrentPlayerControls({
             <div className="text-lg text-gray-600">Listen to the tuning session</div>
           </div>
 
-          {/* Time Display */}
           <div className="text-center mb-4">
             <div className="text-3xl font-bold text-blue-600 mb-2">
               {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
@@ -157,7 +148,6 @@ export function CurrentPlayerControls({
             <div className="text-sm text-gray-600">Time remaining</div>
           </div>
 
-          {/* Progress Bar */}
           <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
             <div
               className="bg-blue-600 h-3 rounded-full transition-all duration-1000"
@@ -165,13 +155,11 @@ export function CurrentPlayerControls({
             ></div>
           </div>
 
-          {/* Live Indicator */}
           <div className="flex items-center justify-center gap-2 mb-4">
             <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
             <span className="text-red-600 font-medium">LIVE</span>
           </div>
 
-          {/* Instructions */}
           <div className="text-sm text-gray-500 text-center">
             <p>Listen to {currentPlayer.name}'s tuning session.</p>
             <p>You'll be notified when it's your turn!</p>

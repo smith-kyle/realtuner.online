@@ -30,11 +30,11 @@ export function QueueDisplay({ gameState, isConnected }: QueueDisplayProps) {
       {/* Current Player Section */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold mb-3 text-gray-800">Currently Tuning</h3>
-        {gameState.currentPlayer ? (
+        {gameState.activeTuner ? (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="text-lg font-medium text-blue-800">
-                {gameState.currentPlayer.name}
+                {gameState.activeTuner.name}
               </div>
             </div>
 
@@ -61,7 +61,7 @@ export function QueueDisplay({ gameState, isConnected }: QueueDisplayProps) {
           <div className="space-y-2">
             {gameState.queue.map((player, index) => (
               <div
-                key={player.id}
+                key={player.userId}
                 className={`flex items-center justify-between p-3 rounded-lg border ${
                   index === 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200'
                 }`}

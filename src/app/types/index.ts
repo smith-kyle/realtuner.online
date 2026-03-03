@@ -1,13 +1,16 @@
-export interface Player {
-  id: string
+export interface QueueEntry {
+  userId: string
   name: string
-  socketId: string
-  joinedAt: string
+  position: number
+}
+
+export interface ActiveTuner {
+  userId: string
+  name: string
 }
 
 export interface GameState {
-  queue: Player[]
-  currentPlayer: Player | null
+  activeTuner: ActiveTuner | null
+  queue: QueueEntry[]
   totalTunes: number
-  isActive: boolean
 }
