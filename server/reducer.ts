@@ -13,20 +13,23 @@ export function reducer(state: ServerState, event: Event): ServerState {
         userId: event.userId,
         name: event.name,
         expiresAt: Date.now() + LEASE_TTL,
+        activeSince: 0,
       }
       const newQueue = [...state.queue, lease]
 
       // Auto-promote if no active tuner
       if (!state.activeTuner) {
-        return { ...state, activeTuner: newQueue[0], queue: newQueue.slice(1) }
+        return { ...state, activeTuner: { ...newQueue[0], activeSince: Date.now() }, queue: newQueue.slice(1) }
       }
       return { ...state, queue: newQueue }
     }
 
+    case 'SESSION_TIMEOUT':
     case 'DONE_TUNING': {
       if (state.activeTuner?.userId !== event.userId) return state
       const totalTunes = state.totalTunes + 1
-      const nextTuner = state.queue[0] ?? null
+      const next = state.queue[0] ?? null
+      const nextTuner = next ? { ...next, activeSince: Date.now() } : null
       const newQueue = state.queue.slice(1)
       return { ...state, activeTuner: nextTuner, queue: newQueue, totalTunes }
     }
@@ -36,7 +39,8 @@ export function reducer(state: ServerState, event: Event): ServerState {
     case 'USER_DISCONNECTED': {
       // If they are the active tuner, promote next
       if (state.activeTuner?.userId === event.userId) {
-        const nextTuner = state.queue[0] ?? null
+        const next = state.queue[0] ?? null
+        const nextTuner = next ? { ...next, activeSince: Date.now() } : null
         const newQueue = state.queue.slice(1)
         return { ...state, activeTuner: nextTuner, queue: newQueue }
       }

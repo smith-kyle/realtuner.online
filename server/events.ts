@@ -6,4 +6,5 @@ export type Event =
   | { type: 'JOIN_QUEUE'; userId: string; name: string }
   | { type: 'LEAVE_QUEUE'; userId: string }
   | { type: 'DONE_TUNING'; userId: string }
+  | { type: 'SESSION_TIMEOUT'; userId: string }
   | { type: 'AUDIO_DATA'; userId: string; buffer: Buffer }

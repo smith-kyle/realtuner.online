@@ -1,7 +1,8 @@
 export interface Lease {
   userId: string
   name: string
-  expiresAt: number // ms timestamp
+  expiresAt: number   // ms timestamp — renewed by heartbeat
+  activeSince: number // ms timestamp — set when this lease becomes activeTuner
 }
 
 export interface ServerState {
