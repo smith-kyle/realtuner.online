@@ -36,65 +36,52 @@ export function QueueSection() {
     }
   }
 
+  const pad = windowWidth < 768 ? '12px' : '15px'
   const panelStyle = {
-    border: '2px solid #8B4513',
-    backgroundColor: '#F5E0C8',
-    padding: windowWidth < 768 ? '12px' : '15px',
-  }
-
-  const buttonStyle = {
-    backgroundColor: '#8B4513',
-    color: '#F5E0C8',
-    border: '2px solid #5C2E00',
-    cursor: 'pointer',
-    fontWeight: 'bold' as const,
-    fontSize: windowWidth < 768 ? '14px' : '15px',
-    padding: windowWidth < 768 ? '12px 20px' : '10px 20px',
-    width: '100%',
+    border: '2px solid var(--border)',
+    backgroundColor: 'var(--panel-bg)',
+    padding: pad,
   }
 
   const waitingCount = gameState.queue.length
 
   return (
     <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ border: '2px solid #8B4513', overflow: 'hidden' }}>
-        <div style={{ ...panelStyle, borderBottom: '2px solid #8B4513' }}>
+      <div style={{ border: '2px solid var(--border)', overflow: 'hidden' }}>
+        <div style={{ ...panelStyle, borderBottom: '2px solid var(--border)' }}>
           {error && (
-            <div style={{ color: '#8B0000', marginBottom: '10px', fontSize: windowWidth < 768 ? '13px' : '14px' }}>
+            <div style={{ color: 'var(--error)', marginBottom: '10px', fontSize: windowWidth < 768 ? '13px' : '14px' }}>
               {error}
             </div>
           )}
 
           {isCurrentPlayer ? (
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontWeight: 'bold', fontSize: windowWidth < 768 ? '16px' : '18px', color: '#5C2E00', marginBottom: '12px' }}>
-                It's your turn! Tune away.
-              </div>
-              <button onClick={doneTuning} style={{ ...buttonStyle, backgroundColor: '#5C2E00', borderColor: '#3A1A00' }}>
+              <button onClick={doneTuning} className="btn btn-danger" style={{ marginBottom: '10px' }}>
                 Done Tuning
               </button>
+              <div style={{ fontWeight: 'bold', fontSize: windowWidth < 768 ? '14px' : '15px', color: 'var(--foreground-dark)' }}>
+                It's your turn! Tune away.
+              </div>
             </div>
           ) : isInQueue ? (
-            <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: windowWidth < 768 ? '14px' : '16px', color: '#5C2E00' }}>
+            <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: windowWidth < 768 ? '14px' : '16px', color: 'var(--foreground-dark)' }}>
               You're #{queuePosition} in line &nbsp;&mdash;&nbsp; {gameState.queue.length} {gameState.queue.length === 1 ? 'person' : 'people'} waiting
             </div>
           ) : micDenied ? (
-            <button
-              onClick={() => window.location.reload()}
-              style={{ ...buttonStyle, backgroundColor: '#8B0000', borderColor: '#5C0000' }}
-            >
+            <button onClick={() => window.location.reload()} className="btn btn-neutral">
               Mic needed — refresh to allow
             </button>
           ) : (
-            <button onClick={handleStartTuning} disabled={micPending} style={{ ...buttonStyle, opacity: micPending ? 0.7 : 1 }}>
+            <button onClick={handleStartTuning} disabled={micPending} className="btn btn-primary">
               {micPending ? 'Requesting mic...' : 'Start Tuning'}
             </button>
           )}
         </div>
 
         {waitingCount > 0 && (
-          <div style={{ padding: windowWidth < 768 ? '12px' : '15px', backgroundColor: '#F5E0C8', textAlign: 'center' }}>
-            <span style={{ fontSize: windowWidth < 768 ? '14px' : '15px', color: '#5C2E00' }}>
+          <div style={{ padding: pad, backgroundColor: 'var(--panel-bg)', textAlign: 'center' }}>
+            <span style={{ fontSize: windowWidth < 768 ? '14px' : '15px', color: 'var(--foreground-dark)' }}>
               {`${waitingCount} ${waitingCount === 1 ? 'person' : 'people'} waiting to tune`}
             </span>
           </div>
@@ -106,7 +93,7 @@ export function QueueSection() {
           textAlign: 'center',
           marginTop: '12px',
           fontSize: windowWidth < 768 ? '12px' : '14px',
-          color: '#1a0a00',
+          color: 'var(--foreground)',
           fontWeight: 'bold',
         }}
       >

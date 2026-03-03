@@ -19,8 +19,8 @@ export default function Home() {
           fontSize: 'clamp(24px, 5vw, 42px)',
           fontWeight: 'bold',
           marginBottom: '20px',
-          color: '#1a0a00',
-          textShadow: '2px 2px 0px #8B4513',
+          color: 'var(--foreground)',
+          textShadow: '2px 2px 0px var(--border)',
         }}
       >
         Tune on a <em>REAL</em> Boss TU3
@@ -34,7 +34,7 @@ export default function Home() {
           margin: '0 auto 20px auto',
           aspectRatio: '16/9',
           position: 'relative',
-          border: '3px solid #8B4513',
+          border: '3px solid var(--border)',
           overflow: 'hidden',
         }}
       >
@@ -100,12 +100,12 @@ function FAQ() {
   return (
     <section
       style={{
-        borderTop: '3px solid #8B4513',
+        borderTop: '3px solid var(--border)',
         paddingTop: '24px',
         marginTop: '48px',
       }}
     >
-      <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '16px', color: '#1a0a00' }}>
+      <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '16px', color: 'var(--foreground)' }}>
         FAQ
       </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -113,7 +113,7 @@ function FAQ() {
           <details
             key={q}
             style={{
-              border: '1px solid #c8874a',
+              border: '1px solid var(--border-muted)',
               borderRadius: '6px',
               overflow: 'hidden',
             }}
@@ -123,8 +123,8 @@ function FAQ() {
                 padding: '12px 16px',
                 fontWeight: 'bold',
                 fontSize: '15px',
-                color: '#1a0a00',
-                background: '#fdf3e7',
+                color: 'var(--foreground)',
+                background: 'var(--panel-bg-alt)',
                 cursor: 'pointer',
                 userSelect: 'none',
                 listStyle: 'none',
@@ -133,16 +133,16 @@ function FAQ() {
                 gap: '10px',
               }}
             >
-              <span style={{ color: '#8B4513', fontSize: '12px', flexShrink: 0 }}>▶</span>
+              <span style={{ color: 'var(--border)', fontSize: '12px', flexShrink: 0 }}>▶</span>
               {q}
             </summary>
             <div
               style={{
                 padding: '12px 16px',
-                color: '#1a0a00',
+                color: 'var(--foreground)',
                 lineHeight: '1.6',
-                borderTop: '1px solid #c8874a',
-                background: '#fffaf5',
+                borderTop: '1px solid var(--border-muted)',
+                background: 'var(--panel-bg-open)',
               }}
             >
               {a}

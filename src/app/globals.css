@@ -1,8 +1,17 @@
 :root {
-  --background: #E8742A;
-  --foreground: #1a0a00;
-  --panel-bg: #F5E0C8;
-  --border-color: #8B4513;
+  --background:        #f0ead6;
+  --foreground:        #1a0a00;
+  --foreground-dark:   #2a1f1a;
+  --panel-bg:          #e8e0c4;
+  --panel-bg-alt:      #fdf3e7;
+  --panel-bg-open:     #fffaf5;
+  --border:            #3d3028;
+  --border-muted:      #7a6a60;
+  --btn-primary:       #3d6b9e;
+  --btn-primary-hover: #2f5480;
+  --btn-danger:        #a63228;
+  --btn-danger-hover:  #832119;
+  --error:             #8b0000;
 }
 
 * {
@@ -28,6 +37,40 @@ input[type="button"],
 input[type="submit"] {
   min-height: 44px;
   min-width: 44px;
+}
+
+.btn {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 15px;
+  padding: 10px 20px;
+  transition: background-color 0.15s ease;
+}
+.btn:active { }
+.btn:disabled { opacity: 0.65; cursor: default; }
+
+.btn-primary {
+  background-color: var(--btn-primary);
+  color: var(--background);
+}
+.btn-primary:hover:not(:disabled) { background-color: var(--btn-primary-hover); }
+
+.btn-danger {
+  background-color: var(--btn-danger);
+  color: var(--background);
+}
+.btn-danger:hover:not(:disabled) { background-color: var(--btn-danger-hover); }
+
+.btn-neutral {
+  background-color: var(--border);
+  color: var(--background);
+}
+.btn-neutral:hover:not(:disabled) { background-color: var(--foreground-dark); }
+
+@media (max-width: 767px) {
+  .btn { font-size: 14px; padding: 12px 20px; }
 }
 
 html,
