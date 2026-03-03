@@ -58,6 +58,10 @@ export default function Home() {
 
       {/* FAQ — server rendered */}
       <FAQ />
+
+      <i style={{ textAlign: 'center', marginTop: '32px', marginBottom: '16px', fontSize: '13px', }}>
+        Made by <a href="https://smith-kyle.github.io/" style={{textDecoration: 'underline' }}>Kyle</a>
+      </i>
     </div>
   )
 }
