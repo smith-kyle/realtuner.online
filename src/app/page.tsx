@@ -60,7 +60,7 @@ export default function Home() {
       <FAQ />
 
       <i style={{ textAlign: 'center', marginTop: '32px', marginBottom: '16px', fontSize: '13px', }}>
-        Made by <a href="https://smith-kyle.github.io/" style={{textDecoration: 'underline' }}>Kyle</a>
+        Made by <a href="https://smith-kyle.github.io/" style={{ textDecoration: 'underline', color: 'var(--link)' }}>Kyle</a>
       </i>
     </div>
   )
@@ -89,11 +89,15 @@ function FAQ() {
     },
     {
       q: 'How does it work?',
-      a: <img style={{ maxWidth: "calc(min(100%, 500px))" }} src="/real-tuner-architecture.svg" alt="Architecture diagram" />,
+      a: (
+        <div style={{ display: 'inline-block', background: 'var(--foreground)', maxWidth: 'calc(min(100%, 500px))', width: '100%', isolation: 'isolate' }}>
+          <img src="/real-tuner-architecture.svg" alt="Architecture diagram" style={{ display: 'block', width: '100%', }} />
+        </div>
+      ),
     },
     {
       q: 'What instruments can I tune?',
-      a: <span>Guitar, bass, ukulele, violin, mandolin, banjo, cello.</span>,
+      a: <span>Guitars only please.</span>,
     },
   ]
 

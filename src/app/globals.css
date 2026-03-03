@@ -1,17 +1,18 @@
 :root {
-  --background:        #f0ead6;
-  --foreground:        #1a0a00;
-  --foreground-dark:   #2a1f1a;
-  --panel-bg:          #e8e0c4;
-  --panel-bg-alt:      #fdf3e7;
-  --panel-bg-open:     #fffaf5;
-  --border:            #3d3028;
-  --border-muted:      #7a6a60;
-  --btn-primary:       #3d6b9e;
-  --btn-primary-hover: #2f5480;
-  --btn-danger:        #a63228;
-  --btn-danger-hover:  #832119;
-  --error:             #8b0000;
+  --background:        #000011;
+  --foreground:        #ccccff;
+  --foreground-dark:   #aaaaff;
+  --panel-bg:          #00001e;
+  --panel-bg-alt:      #000033;
+  --panel-bg-open:     #00002a;
+  --border:            #4444ff;
+  --border-muted:      #2222aa;
+  --btn-primary:       #6644cc;
+  --btn-primary-hover: #5533aa;
+  --btn-danger:        #cc2222;
+  --btn-danger-hover:  #aa1111;
+  --error:             #ff6666;
+  --link:              #8888ff;
 }
 
 * {
@@ -59,7 +60,7 @@ input[type="submit"] {
 
 .btn-danger {
   background-color: var(--btn-danger);
-  color: var(--background);
+  color: var(--foreground);
 }
 .btn-danger:hover:not(:disabled) { background-color: var(--btn-danger-hover); }
 
