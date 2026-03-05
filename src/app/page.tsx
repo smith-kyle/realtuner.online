@@ -94,11 +94,7 @@ function FAQ() {
           <img src="/real-tuner-architecture.svg" alt="Architecture diagram" style={{ display: 'block', width: '100%', }} />
         </div>
       ),
-    },
-    {
-      q: 'What instruments can I tune?',
-      a: <span>Guitars only please.</span>,
-    },
+    }
   ]
 
   return (
