@@ -1,185 +1,79 @@
-# 🎵 Real Tuner Online
+# Real Tuner Online
 
-An interactive online tuning application where users can join a queue to tune their instruments live in front of an audience via YouTube livestream.
+[realtuner.online](https://realtuner.online) — tune your instrument on a real Boss TU-3, live on stream.
 
-## Features
+Users join a queue and take turns. When it's your turn, your browser captures mic audio via a Web Audio worklet, streams raw PCM over a WebSocket to a Raspberry Pi, which pipes it to `ffplay` connected to a physical tuner. The audience watches via Cloudflare Stream.
 
-- **Live YouTube Stream Integration**: Watch the tuning session via embedded YouTube livestream
-- **Real-time Queue Management**: Users can join and leave the queue with live updates
-- **30-Second Timer**: Each person gets exactly 30 seconds to tune their instrument
-- **Audio Streaming**: User microphones are streamed live to the server output during their turn
-- **Microphone Permission Handling**: Users must grant microphone access before joining the queue
-- **Statistics Tracking**: Total number of completed tunes is tracked and displayed
-- **Persistent Data**: All queue and statistics data is stored on disk
-- **Responsive Design**: Works on desktop and mobile devices
+## Architecture
 
-## Technology Stack
+```
+Browser (mic) ──PCM/WebSocket──▶ Hono server (Pi) ──stdin──▶ ffplay ──▶ Boss TU-3
+                                       │
+                                  JSON state broadcast ──▶ all clients
+                                       │
+Cloudflare Stream ◀── camera pointed at tuner
+```
 
-- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS
-- **Backend**: Node.js, Express, Socket.IO
-- **Real-time Communication**: WebSockets
-- **Audio**: Web Audio API, MediaRecorder API
-- **Data Storage**: File-based JSON storage
+**Server** — Hono + `@hono/node-server` (port 3001), raw `ws` WebSocket. Redux-style state management: events are dispatched to a pure reducer, subscribers broadcast state and handle side effects (audio, persistence).
 
-## Installation
+**Client** — Next.js 15 / React 19. Single client island (`QueueSection`) connects via `useWebSocket` hook (native WebSocket, exponential backoff reconnect). Audio captured with an `AudioWorklet` processor, buffered into 1024-sample Int16 chunks, sent as binary WS frames.
 
-1. Clone the repository:
+**Leases** — 10s TTL heartbeat system. Client sends heartbeat every 3s. Expired leases are pruned every 1s. Active tuner has a 2-minute hard cap.
+
+**Persistence** — `tuner-data.json` stores `{ totalTunes }`. No database.
+
+## Server structure
+
+```
+server/
+  index.ts          Hono app, WSS setup, lifecycle hooks
+  state.ts          ServerState / ClientState types, toClientState()
+  events.ts         Discriminated union of all events
+  reducer.ts        Pure (state, event) → state
+  store.ts          Store class: dispatch → reduce → notify
+  leases.ts         Lease TTL checker, session timeout
+  connections.ts    userId → WebSocket map, broadcast/sendTo
+  ws.ts             WS message parsing → store.dispatch
+  audio.ts          ffplay spawn/write/close
+  persistence.ts    tuner-data.json load/save
+```
+
+## WS protocol
+
+**Client → Server** (JSON): `identify`, `heartbeat`, `join-queue`, `leave-queue`, `done-tuning`
+**Client → Server** (binary): raw PCM audio frames (16-bit signed, 44100 Hz, mono)
+**Server → Client** (JSON): `{ type: 'state', payload: ClientState }` on every state change
+
+## Running locally
 
 ```bash
-git clone <repository-url>
-cd realtuner.online
+pnpm install
+
+# Terminal 1 — backend (port 3001)
+pnpm dev:server
+
+# Terminal 2 — frontend (port 3000)
+pnpm dev
 ```
 
-2. Install dependencies:
+Env vars (`.env`):
+- `HOST` — server bind address
+- `NEXT_PUBLIC_WS_URL` — WebSocket URL the client connects to (e.g. `ws://localhost:3001`)
+
+## Recovery
+
+The Raspberry Pi SSD backup (`realtuner-backup.img.zip`, ~3 GB, gitignored) can be restored with:
 
 ```bash
-npm install
-# or
-yarn install
+unzip realtuner-backup.img.zip
+diskutil list                        # identify the target disk
+diskutil unmountDisk /dev/diskN
+sudo dd if=realtuner-backup.img of=/dev/rdiskN bs=4m status=progress
+diskutil eject /dev/diskN
 ```
 
-## Running the Application
-
-The application consists of two parts that need to be run simultaneously:
-
-### 1. Start the Backend Server
-
-```bash
-npm run dev:server
-# or
-yarn dev:server
-```
-
-This starts the Express/Socket.IO server on port 3001.
-
-### 2. Start the Frontend Development Server
-
-```bash
-npm run dev
-# or
-yarn dev
-```
-
-This starts the Next.js development server on port 3000.
-
-### 3. Access the Application
-
-Open your browser and navigate to:
-
-```
-http://localhost:3000
-```
-
-## How It Works
-
-### For Users:
-
-1. **Allow Microphone Access**: Grant permission to use your microphone
-2. **Join Queue**: Enter your name and join the tuning queue
-3. **Wait Your Turn**: Watch the current player and see your position in the queue
-4. **Tune Live**: When it's your turn, you get 30 seconds to tune your instrument
-5. **Audio is Live**: Your microphone input is streamed to everyone listening
-
-### For Administrators:
-
-- The server automatically manages the queue and timers
-- Data is persistently stored in `tuner-data.json`
-- Users are automatically moved through the queue
-- Disconnected users are automatically removed from the queue
-
-## API Endpoints
-
-The WebSocket server handles the following events:
-
-### Client → Server:
-
-- `join-queue` - Join the tuning queue with a name
-- `leave-queue` - Leave the tuning queue
-- `skip-turn` - Skip your current turn
-- `audio-stream` - Stream audio data from microphone
-
-### Server → Client:
-
-- `game-state-update` - Full game state (queue, current player, etc.)
-- `timer-update` - Timer countdown updates
-- `queue-joined` - Confirmation of joining the queue
-- `audio-output` - Audio stream from current player
-- `error` - Error messages
-
-## File Structure
-
-```
-realtuner.online/
-├── src/
-│   └── app/
-│       ├── components/
-│       │   ├── QueueDisplay.tsx      # Queue and current player display
-│       │   ├── JoinQueue.tsx         # Join queue form with mic permissions
-│       │   └── CurrentPlayerControls.tsx # Controls for current player
-│       ├── hooks/
-│       │   └── useSocket.ts          # WebSocket connection hook
-│       ├── page.tsx                  # Main application page
-│       └── layout.tsx                # App layout
-├── server.js                         # Express/Socket.IO server
-├── package.json                      # Dependencies and scripts
-└── tuner-data.json                   # Persistent data storage (created automatically)
-```
-
-## Development Notes
-
-### Audio Streaming
-
-- Uses MediaRecorder API to capture audio from user microphones
-- Audio is streamed in real-time via WebSocket
-- Only the current player's audio is transmitted
-- In production, server audio output would be connected to physical speakers
-
-### Queue Management
-
-- Automatic 30-second timer per player
-- Queue automatically progresses when time expires
-- Players can skip their turn early
-- Disconnected players are automatically removed
-
-### Data Persistence
-
-- All data is stored in `tuner-data.json`
-- Data is automatically saved on every state change
-- Statistics persist across server restarts
-
-## Production Deployment
-
-For production deployment:
-
-1. Build the Next.js application:
-
-```bash
-npm run build
-```
-
-2. Set up environment variables:
-
-```bash
-export NODE_ENV=production
-export PORT=3001
-```
-
-3. Run the production server:
-
-```bash
-npm start
-```
-
-4. Set up a reverse proxy (nginx) to serve both the frontend and backend
-5. Configure SSL certificates for HTTPS (required for microphone access)
-6. Set up the server audio output to physical speakers/PA system
-
-## Browser Requirements
-
-- Modern browsers with WebRTC support
-- HTTPS required for microphone access (in production)
-- JavaScript must be enabled
+To create a new backup, shut down the Pi, connect the SSD, and `dd` in reverse.
 
 ## License
 
-This project is licensed under the MIT License.
+MIT
